@@ -19,8 +19,8 @@ pluginManagement {
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id("com.android.application") version "8.2.1" apply false
-    // Nâng cấp Kotlin lên 2.1.0 để tương thích với metadata phiên bản mới từ các thư viện
+    id("com.android.application") version "8.6.0" apply false
+    // Upgrade Kotlin to 2.1.0 for compatibility with newer plugins
     id("org.jetbrains.kotlin.android") version "2.1.0" apply false
     id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0"
 }

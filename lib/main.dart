@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:zego_uikit_prebuilt_call/zego_uikit_prebuilt_call.dart';
 import 'features/auth/presentation/pages/auth_page.dart';
+import 'services/config_service.dart';
+import 'services/zego_service.dart';
 
 // Key điều hướng toàn cục để Zego có thể điều khiển app từ bên ngoài
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -10,29 +13,44 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Load environment variables
+  await dotenv.load(fileName: ".env");
+
   // Gán navigatorKey cho Zego Service TRƯỚC KHI RUN APP
   ZegoUIKitPrebuiltCallInvitationService().setNavigatorKey(navigatorKey);
 
   try {
+    // Initialize Firebase FIRST (mobile uses google-services.json)
     if (kIsWeb) {
+      // For web, get config from backend
+      final configService = ConfigService();
+      final firebaseConfig = await configService.getFirebaseConfig();
+
       await Firebase.initializeApp(
-        options: const FirebaseOptions(
-          apiKey: "AIzaSyDDdtP5JE4z6gGCqqR79_KeA-ne9cloGeo",
-          authDomain: "chatappfinal-620d3.firebaseapp.com",
-          projectId: "chatappfinal-620d3",
-          storageBucket: "chatappfinal-620d3.firebasestorage.app",
-          messagingSenderId: "713648515500",
-          appId: "1:713648515500:web:eb9168b0bb91ed53d2f209",
-          measurementId: "G-CWMR96TZVZ",
+        options: FirebaseOptions(
+          apiKey: firebaseConfig['apiKey'],
+          authDomain: firebaseConfig['authDomain'],
+          projectId: firebaseConfig['projectId'],
+          storageBucket: firebaseConfig['storageBucket'],
+          messagingSenderId: firebaseConfig['messagingSenderId'],
+          appId: firebaseConfig['appId'],
+          measurementId: firebaseConfig['measurementId'],
         ),
       );
     } else {
+      // For mobile, use google-services.json
       await Firebase.initializeApp();
     }
+
+    // Initialize Zego config from backend (after Firebase is ready)
+    final zegoService = ZegoService();
+    await zegoService.initialize();
   } catch (e) {
     if (kDebugMode) {
-      print('Firebase init error: $e');
+      print('Initialization error: $e');
     }
+    // Even if there's an error, we should still run the app
+    // Firebase might still work from local config
   }
 
   runApp(const MyApp());
@@ -72,11 +90,11 @@ class MyApp extends StatelessWidget {
 ThemeData _buildVibrantTheme() {
   return ThemeData(
     useMaterial3: true,
-    
+
     // --- COLOR SCHEME ---
     colorScheme: ColorScheme.fromSeed(
       seedColor: const Color(0xFF673AB7), // Deep Purple
-      primary: const Color(0xFF7E57C2),   // A slightly lighter deep purple
+      primary: const Color(0xFF7E57C2), // A slightly lighter deep purple
       secondary: const Color(0xFFFFC107), // Amber for accents
       background: const Color(0xFFF5F5F5), // Light grey for background
       surface: Colors.white, // For cards, dialogs, etc.
@@ -94,11 +112,12 @@ ThemeData _buildVibrantTheme() {
       displayLarge: TextStyle(fontWeight: FontWeight.bold, fontSize: 32.0),
       headlineMedium: TextStyle(fontWeight: FontWeight.w600, fontSize: 24.0),
       bodyMedium: TextStyle(fontSize: 14.0, height: 1.5),
-      labelLarge: TextStyle(fontWeight: FontWeight.bold, fontSize: 16.0), // For button text
+      labelLarge: TextStyle(
+          fontWeight: FontWeight.bold, fontSize: 16.0), // For button text
     ),
 
     // --- COMPONENT THEMES ---
-    
+
     // AppBar Theme
     appBarTheme: const AppBarTheme(
       backgroundColor: Color(0xFF7E57C2),

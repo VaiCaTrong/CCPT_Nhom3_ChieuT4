@@ -1,10 +1,10 @@
 name: chat_app_final
 description: Đồ án chat app Flutter + Firebase
-publish_to: 'none'
+publish_to: "none"
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.5.0 <4.0.0'
+  sdk: ">=3.5.0 <4.0.0"
 
 dependencies:
   flutter:
@@ -36,10 +36,16 @@ dependencies:
 
   # Live Streaming
   zego_uikit_prebuilt_live_streaming: ^3.14.3
-  
+
   # Dependencies bổ sung
   device_info_plus: ^11.1.0
   package_info_plus: ^8.1.0
+
+  # API Client
+  dio: ^5.4.0
+  shared_preferences: ^2.2.2
+  socket_io_client: ^2.0.3+1
+  flutter_dotenv: ^5.1.0
 
 dev_dependencies:
   flutter_test:
@@ -48,3 +54,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - .env
