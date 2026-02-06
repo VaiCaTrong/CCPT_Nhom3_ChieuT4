@@ -45,7 +45,10 @@ class _AuthPageState extends State<AuthPage> {
         );
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Đăng nhập thành công!'), backgroundColor: Colors.green),
+            const SnackBar(
+              content: Text('Đăng nhập thành công!'),
+              backgroundColor: Colors.green,
+            ),
           );
           // Chuyển sang HomePage khi đăng nhập thành công
           Navigator.pushReplacement(
@@ -62,8 +65,11 @@ class _AuthPageState extends State<AuthPage> {
           role: selectedRole, // Truyền role đã chọn
         );
         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Đăng ký thành công! Vui lòng đăng nhập.'), backgroundColor: Colors.green),
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đăng ký thành công! Vui lòng đăng nhập.'),
+              backgroundColor: Colors.green,
+            ),
           );
           // Chuyển sang form đăng nhập sau khi đăng ký thành công
           setState(() {
@@ -101,7 +107,8 @@ class _AuthPageState extends State<AuthPage> {
             child: Card(
               elevation: 10,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20)),
+                borderRadius: BorderRadius.circular(20),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(30),
                 child: Form(
@@ -109,13 +116,18 @@ class _AuthPageState extends State<AuthPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.chat_bubble, size: 80,
-                          color: Colors.deepPurple.shade600),
+                      Icon(
+                        Icons.chat_bubble,
+                        size: 80,
+                        color: Colors.deepPurple.shade600,
+                      ),
                       const SizedBox(height: 20),
                       Text(
                         isLogin ? 'Chào mừng trở lại!' : 'Tạo tài khoản mới',
                         style: const TextStyle(
-                            fontSize: 28, fontWeight: FontWeight.bold),
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 30),
 
@@ -195,24 +207,27 @@ class _AuthPageState extends State<AuthPage> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.deepPurple.shade600,
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                           child: isLoading
                               ? const CircularProgressIndicator(
-                              color: Colors.white)
+                                  color: Colors.white,
+                                )
                               : Text(
-                            isLogin ? 'Đăng nhập' : 'Đăng ký',
-                            style: const TextStyle(
-                                fontSize: 18, color: Colors.white),
-                          ),
+                                  isLogin ? 'Đăng nhập' : 'Đăng ký',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    color: Colors.white,
+                                  ),
+                                ),
                         ),
                       ),
 
                       const SizedBox(height: 20),
 
                       TextButton(
-                        onPressed: () =>
-                            setState(() => isLogin = !isLogin),
+                        onPressed: () => setState(() => isLogin = !isLogin),
                         child: Text(
                           isLogin
                               ? 'Chưa có tài khoản? Đăng ký ngay'

@@ -2,13 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:zego_uikit_prebuilt_call/zego_uikit_prebuilt_call.dart';
 import 'dart:math';
+import '../../../../services/zego_service.dart';
 
-// LƯU Ý: Bạn cần thay thế AppID và AppSign của riêng bạn vào đây
-// Đăng ký tại https://console.zegocloud.com/
-class CallInfo {
-  static const int appId = 872327054; // Thay bằng AppID của bạn
-  static const String appSign = '9f51b89db7cefc82a011d91e70a7596314f199e4623f9e9dc6b70697989c0711'; // Thay bằng AppSign của bạn
-}
+// Zego config được lấy từ backend thông qua ZegoService
+// Không còn hardcode keys nữa!
 
 class CallPage extends StatelessWidget {
   final String callID;
@@ -26,22 +23,24 @@ class CallPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final zegoService = ZegoService();
+
     return ZegoUIKitPrebuiltCall(
-      appID: CallInfo.appId, 
-      appSign: CallInfo.appSign,
+      appID: zegoService.appId,
+      appSign: zegoService.appSign,
       userID: userID,
       userName: userName,
       callID: callID,
-      
+
       // Config cuộc gọi 1-1
       config: ZegoUIKitPrebuiltCallConfig.oneOnOneVideoCall(),
-      
+
       // Xử lý sự kiện kết thúc cuộc gọi để lưu lịch sử
       events: ZegoUIKitPrebuiltCallEvents(
         onCallEnd: (event, defaultAction) async {
           // Lưu log cuộc gọi vào Firestore
           final timestamp = FieldValue.serverTimestamp();
-          
+
           await FirebaseFirestore.instance
               .collection('chats')
               .doc(chatId)
