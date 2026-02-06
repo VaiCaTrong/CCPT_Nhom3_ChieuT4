@@ -149,8 +149,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
   // Build image grid for displaying multiple images
   Widget _buildImageGrid(List<String> imageUrls, bool isMe) {
     if (imageUrls.length == 1) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+      return GestureDetector(
+        onTap: () => _showImageViewer(imageUrls, 0),
         child: Image.network(
           imageUrls[0],
           width: 200,
@@ -184,14 +184,14 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount:
               imageUrls.length == 2 ? 2 : (imageUrls.length <= 4 ? 2 : 3),
-          crossAxisSpacing: 4,
-          mainAxisSpacing: 4,
+          crossAxisSpacing: 2,
+          mainAxisSpacing: 2,
         ),
         itemCount: imageUrls.length > 9 ? 9 : imageUrls.length,
         itemBuilder: (context, index) {
           final isLast = index == 8 && imageUrls.length > 9;
-          return ClipRRect(
-            borderRadius: BorderRadius.circular(4),
+          return GestureDetector(
+            onTap: () => _showImageViewer(imageUrls, index),
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -222,6 +222,80 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  // Show fullscreen image viewer with swipe support
+  void _showImageViewer(List<String> imageUrls, int initialIndex) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            PageView.builder(
+              itemCount: imageUrls.length,
+              controller: PageController(initialPage: initialIndex),
+              itemBuilder: (context, index) {
+                return Center(
+                  child: InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 4.0,
+                    child: Image.network(
+                      imageUrls[index],
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Icon(
+                          Icons.broken_image,
+                          color: Colors.white,
+                          size: 100,
+                        );
+                      },
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return const Center(
+                          child: CircularProgressIndicator(color: Colors.white),
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+            // Close button
+            Positioned(
+              top: 40,
+              right: 16,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+            // Image counter (if multiple images)
+            if (imageUrls.length > 1)
+              Positioned(
+                top: 50,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${initialIndex + 1}/${imageUrls.length}',
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -633,100 +707,161 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                                             fontSize: 10,
                                             color: Colors.grey.shade600))),
 
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: isMe
-                                      ? Colors.deepPurple
-                                      : Colors.grey.shade300,
-                                  borderRadius: BorderRadius.circular(15),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Phần hiển thị tin nhắn được Reply
-                                    if (replyTo != null)
-                                      Container(
-                                        padding: const EdgeInsets.all(8),
-                                        margin:
-                                            const EdgeInsets.only(bottom: 8),
-                                        decoration: BoxDecoration(
-                                            color:
-                                                Colors.black.withOpacity(0.1),
-                                            borderRadius:
-                                                BorderRadius.circular(8),
-                                            border: Border(
-                                                left: BorderSide(
-                                                    color: isMe
-                                                        ? Colors.white
-                                                        : Colors.deepPurple,
-                                                    width: 4))),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
+                              // Check if message is image-only (no reply, just images)
+                              Builder(
+                                builder: (context) {
+                                  final bool isImageOnly = msgType == 'image' &&
+                                      imageUrls != null &&
+                                      imageUrls.isNotEmpty &&
+                                      replyTo == null;
+
+                                  if (isImageOnly) {
+                                    // Display images without background frame
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        _buildImageGrid(imageUrls!, isMe),
+                                        // Show timestamp below images
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                              top: 4, left: 4),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (isEdited)
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                          right: 4),
+                                                  child: Text(
+                                                    '(đã sửa)',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      fontStyle:
+                                                          FontStyle.italic,
+                                                      color:
+                                                          Colors.grey.shade600,
+                                                    ),
+                                                  ),
+                                                ),
+                                              Text(
+                                                timeStr,
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: Colors.grey.shade600,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }
+
+                                  // Regular message with background container
+                                  return Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: isMe
+                                          ? Colors.deepPurple
+                                          : Colors.grey.shade300,
+                                      borderRadius: BorderRadius.circular(15),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        // Phần hiển thị tin nhắn được Reply
+                                        if (replyTo != null)
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            margin: const EdgeInsets.only(
+                                                bottom: 8),
+                                            decoration: BoxDecoration(
+                                                color: Colors.black
+                                                    .withOpacity(0.1),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                border: Border(
+                                                    left: BorderSide(
+                                                        color: isMe
+                                                            ? Colors.white
+                                                            : Colors.deepPurple,
+                                                        width: 4))),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                    replyTo['senderName'] ??
+                                                        'Unknown',
+                                                    style: TextStyle(
+                                                        fontSize: 11,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: isMe
+                                                            ? Colors.white70
+                                                            : Colors
+                                                                .deepPurple)),
+                                                Text(replyTo['content'] ?? '',
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: isMe
+                                                            ? Colors.white70
+                                                            : Colors.black54)),
+                                              ],
+                                            ),
+                                          ),
+
+                                        // Nội dung chính - Text hoặc Ảnh
+                                        if (msgType == 'image' &&
+                                            imageUrls != null &&
+                                            imageUrls.isNotEmpty)
+                                          _buildImageGrid(imageUrls, isMe)
+                                        else
+                                          Text(content,
+                                              style: TextStyle(
+                                                  color: isMe
+                                                      ? Colors.white
+                                                      : Colors.black,
+                                                  fontSize: 16)),
+
+                                        // Footer: Đã sửa + Thời gian
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.end,
                                           children: [
-                                            Text(
-                                                replyTo['senderName'] ??
-                                                    'Unknown',
+                                            if (isEdited)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                    right: 4),
+                                                child: Text('(đã sửa)',
+                                                    style: TextStyle(
+                                                        fontSize: 10,
+                                                        fontStyle:
+                                                            FontStyle.italic,
+                                                        color: isMe
+                                                            ? Colors.white70
+                                                            : Colors.black54)),
+                                              ),
+                                            Text(timeStr,
                                                 style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: isMe
-                                                        ? Colors.white70
-                                                        : Colors.deepPurple)),
-                                            Text(replyTo['content'] ?? '',
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(
-                                                    fontSize: 12,
+                                                    fontSize: 10,
                                                     color: isMe
                                                         ? Colors.white70
                                                         : Colors.black54)),
                                           ],
-                                        ),
-                                      ),
-
-                                    // Nội dung chính - Text hoặc Ảnh
-                                    if (msgType == 'image' &&
-                                        imageUrls != null &&
-                                        imageUrls.isNotEmpty)
-                                      _buildImageGrid(imageUrls, isMe)
-                                    else
-                                      Text(content,
-                                          style: TextStyle(
-                                              color: isMe
-                                                  ? Colors.white
-                                                  : Colors.black,
-                                              fontSize: 16)),
-
-                                    // Footer: Đã sửa + Thời gian
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        if (isEdited)
-                                          Padding(
-                                            padding:
-                                                const EdgeInsets.only(right: 4),
-                                            child: Text('(đã sửa)',
-                                                style: TextStyle(
-                                                    fontSize: 10,
-                                                    fontStyle: FontStyle.italic,
-                                                    color: isMe
-                                                        ? Colors.white70
-                                                        : Colors.black54)),
-                                          ),
-                                        Text(timeStr,
-                                            style: TextStyle(
-                                                fontSize: 10,
-                                                color: isMe
-                                                    ? Colors.white70
-                                                    : Colors.black54)),
+                                        )
                                       ],
-                                    )
-                                  ],
-                                ),
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ),
