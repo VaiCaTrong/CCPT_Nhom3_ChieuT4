@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart';
 
 class ApiClient {
   // Get base URL from environment variable
@@ -183,4 +184,41 @@ class ApiClient {
   }
 
   bool get isAuthenticated => _accessToken != null;
+
+  /// Upload images to server
+  /// Returns list of public URLs
+  Future<List<String>> uploadImages({
+    required List<XFile> images,
+    required String roomId,
+  }) async {
+    final formData = FormData();
+
+    // Add roomId
+    formData.fields.add(MapEntry('roomId', roomId));
+
+    // Add images
+    for (var image in images) {
+      final bytes = await image.readAsBytes();
+      formData.files.add(MapEntry(
+        'images',
+        MultipartFile.fromBytes(bytes, filename: image.name),
+      ));
+    }
+
+    final response = await _dio.post(
+      '/upload/images',
+      data: formData,
+      options: Options(
+        headers: {
+          'Authorization': 'Bearer $_accessToken',
+          'Content-Type': 'multipart/form-data',
+        },
+      ),
+    );
+
+    if (response.data['success'] == true) {
+      return List<String>.from(response.data['data']['urls']);
+    }
+    throw Exception(response.data['error'] ?? 'Upload failed');
+  }
 }
