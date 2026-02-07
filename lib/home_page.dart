@@ -50,6 +50,12 @@ class _HomePageState extends State<HomePage> {
 
     final zegoService = ZegoService();
 
+    // Kiểm tra xem Zego đã được khởi tạo chưa
+    if (!zegoService.isInitialized) {
+      print('⚠️ Zego chưa được khởi tạo, bỏ qua call invitation');
+      return;
+    }
+
     ZegoUIKitPrebuiltCallInvitationService().init(
       appID: zegoService.appId,
       appSign: zegoService.appSign,

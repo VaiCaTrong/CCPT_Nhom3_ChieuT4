@@ -1,6 +1,9 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http_parser/http_parser.dart';
 
 class ApiClient {
   // Get base URL from environment variable
@@ -183,4 +186,91 @@ class ApiClient {
   }
 
   bool get isAuthenticated => _accessToken != null;
+
+  /// Upload images to server
+  /// Returns list of public URLs
+  /// Upload images to server
+  /// Returns list of public URLs
+  Future<List<String>> uploadImages({
+    required List<XFile> images,
+    required String roomId,
+  }) async {
+    try {
+      print(
+          '🔍 [UPLOAD] Starting upload - Room: $roomId, Images: ${images.length}');
+
+      // Get Request Token from Firebase Auth
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        print('❌ [UPLOAD] User not logged in');
+        throw Exception('User not logged in');
+      }
+
+      print('✓ [UPLOAD] User: ${user.email}');
+
+      final token = await user.getIdToken();
+      print('✓ [UPLOAD] Token obtained');
+
+      final formData = FormData();
+
+      // Add roomId
+      formData.fields.add(MapEntry('roomId', roomId));
+
+      // Add images
+      for (var image in images) {
+        final bytes = await image.readAsBytes();
+
+        // Detect MIME type from file extension
+        String mimeType = 'image/jpeg'; // default
+        final extension = image.name.toLowerCase().split('.').last;
+        if (extension == 'png') {
+          mimeType = 'image/png';
+        } else if (extension == 'gif') {
+          mimeType = 'image/gif';
+        } else if (extension == 'webp') {
+          mimeType = 'image/webp';
+        }
+
+        print(
+            '✓ [UPLOAD] Adding image: ${image.name}, MIME: $mimeType, Size: ${bytes.length}');
+
+        formData.files.add(MapEntry(
+          'images',
+          MultipartFile.fromBytes(
+            bytes,
+            filename: image.name,
+            contentType: MediaType.parse(mimeType),
+          ),
+        ));
+      }
+
+      print('📤 [UPLOAD] Sending to: $baseUrl/upload/images');
+      final response = await _dio.post(
+        '/upload/images',
+        data: formData,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'multipart/form-data',
+          },
+        ),
+      );
+
+      print('✓ [UPLOAD] Response: ${response.statusCode}');
+      print('✓ [UPLOAD] Data: ${response.data}');
+
+      if (response.data['success'] == true) {
+        final urls = List<String>.from(response.data['data']['urls']);
+        print('✅ [UPLOAD] Success! URLs: $urls');
+        return urls;
+      }
+
+      print('❌ [UPLOAD] Failed: ${response.data}');
+      throw Exception(response.data['error'] ?? 'Upload failed');
+    } catch (e, stackTrace) {
+      print('❌ [UPLOAD] Error: $e');
+      print('Stack: $stackTrace');
+      rethrow;
+    }
+  }
 }
