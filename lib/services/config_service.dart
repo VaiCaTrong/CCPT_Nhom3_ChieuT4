@@ -16,7 +16,13 @@ class ConfigService {
     return 'http://$host:$port/api/config';
   }
 
-  final Dio _dio = Dio();
+  final Dio _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 5), // Timeout kết nối
+      receiveTimeout: const Duration(seconds: 5), // Timeout nhận data
+      sendTimeout: const Duration(seconds: 5), // Timeout gửi data
+    ),
+  );
 
   // Cache for configs
   Map<String, dynamic>? _firebaseConfig;

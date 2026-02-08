@@ -42,15 +42,30 @@ void main() async {
       await Firebase.initializeApp();
     }
 
-    // Initialize Zego config from backend (after Firebase is ready)
-    final zegoService = ZegoService();
-    await zegoService.initialize();
+    if (kDebugMode) {
+      print('✅ Firebase initialized successfully');
+    }
   } catch (e) {
     if (kDebugMode) {
-      print('Initialization error: $e');
+      print('❌ Firebase initialization error: $e');
     }
-    // Even if there's an error, we should still run the app
-    // Firebase might still work from local config
+    // Continue anyway - app can still work with limited functionality
+  }
+
+  // Initialize Zego config from backend (non-blocking)
+  // This runs in background and won't block app startup
+  try {
+    final zegoService = ZegoService();
+    await zegoService.initialize();
+    if (kDebugMode) {
+      print('✅ Zego initialized successfully');
+    }
+  } catch (e) {
+    if (kDebugMode) {
+      print('❌ Zego initialization error: $e');
+      print('⚠️ App will continue with limited call functionality');
+    }
+    // App continues even if Zego fails
   }
 
   runApp(const MyApp());
