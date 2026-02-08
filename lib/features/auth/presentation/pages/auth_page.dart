@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart'; // Cho kDebugMode
 import 'package:flutter/material.dart';
 import '../../data/auth_service.dart';
 import '../../../../home_page.dart'; // Import HomePage (nếu có)
+import '../../../../services/api_client.dart';
 
 class AuthPage extends StatefulWidget {
   const AuthPage({super.key});
@@ -14,6 +15,7 @@ class AuthPage extends StatefulWidget {
 class _AuthPageState extends State<AuthPage> {
   final _formKey = GlobalKey<FormState>();
   final _authService = AuthService();
+  final _apiClient = ApiClient();
 
   bool isLogin = true;
   bool isLoading = false;
@@ -81,6 +83,77 @@ class _AuthPageState extends State<AuthPage> {
     } on Exception catch (e) {
       if (kDebugMode) {
         print('Exception trong _submit: $e');
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    setState(() => isLoading = true);
+
+    try {
+      if (kDebugMode) {
+        print('Starting Google Sign-In...');
+      }
+
+      // Sign in with Google via Firebase
+      final user = await _authService.signInWithGoogle();
+
+      if (user == null) {
+        // User cancelled
+        if (mounted) setState(() => isLoading = false);
+        return;
+      }
+
+      if (kDebugMode) {
+        print('Google Sign-In successful, getting ID token...');
+      }
+
+      // Get Firebase ID token
+      final idToken = await user.getIdToken();
+
+      if (idToken == null) {
+        throw Exception('Không thể lấy ID token');
+      }
+
+      if (kDebugMode) {
+        print('ID Token obtained, calling backend...');
+      }
+
+      // Send to backend
+      final response = await _apiClient.googleSignIn(idToken: idToken);
+
+      if (kDebugMode) {
+        print('Backend response: $response');
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đăng nhập Google thành công!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Navigate to HomePage
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+        );
+      }
+    } on Exception catch (e) {
+      if (kDebugMode) {
+        print('Google Sign-In Error: $e');
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -233,6 +306,50 @@ class _AuthPageState extends State<AuthPage> {
                               ? 'Chưa có tài khoản? Đăng ký ngay'
                               : 'Đã có tài khoản? Đăng nhập',
                           style: const TextStyle(color: Colors.deepPurple),
+                        ),
+                      ),
+
+                      // Divider
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Row(
+                          children: [
+                            Expanded(child: Divider()),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 16),
+                              child: Text('HOẶC'),
+                            ),
+                            Expanded(child: Divider()),
+                          ],
+                        ),
+                      ),
+
+                      // Google Sign-In Button
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: OutlinedButton.icon(
+                          onPressed: isLoading ? null : _signInWithGoogle,
+                          icon: Image.asset(
+                            'assets/google_logo.png',
+                            height: 24,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(Icons.g_mobiledata, size: 32);
+                            },
+                          ),
+                          label: const Text(
+                            'Đăng nhập với Google',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.grey),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
                         ),
                       ),
                     ],
