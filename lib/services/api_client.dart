@@ -185,6 +185,23 @@ class ApiClient {
     }
   }
 
+  Future<Map<String, dynamic>> googleSignIn({
+    required String idToken,
+  }) async {
+    final response = await post('/auth/google', data: {
+      'idToken': idToken,
+    });
+
+    if (response.data['success'] == true) {
+      await _saveTokens(
+        response.data['data']['accessToken'],
+        response.data['data']['refreshToken'],
+      );
+    }
+
+    return response.data;
+  }
+
   bool get isAuthenticated => _accessToken != null;
 
   /// Upload images to server
