@@ -99,41 +99,53 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
       setState(() => _isUploading = true);
 
-      // Upload images to backend
-      final List<String> urls = await _apiClient.uploadImages(
+      // Upload images to backend - returns base64 data
+      final List<Map<String, dynamic>> base64Images =
+          await _apiClient.uploadImages(
         images: images,
         roomId: chatId,
       );
 
-      if (urls.isNotEmpty) {
-        // Send message with image URLs
+      if (base64Images.isNotEmpty) {
+        // Send message with base64 image data
         String senderName =
             FirebaseAuth.instance.currentUser?.displayName ?? 'Unknown';
 
         Map<String, dynamic> msgData = {
           'senderId': currentUserId,
           'senderName': senderName,
-          'content':
-              urls.length == 1 ? 'Đã gửi 1 ảnh' : 'Đã gửi ${urls.length} ảnh',
-          'imageUrls': urls,
+          'content': base64Images.length == 1
+              ? 'Đã gửi 1 ảnh'
+              : 'Đã gửi ${base64Images.length} ảnh',
+          'imageBase64': base64Images, // Store base64 data instead of URLs
           'createdAt': FieldValue.serverTimestamp(),
           'isEdited': false,
           'type': 'image',
         };
 
-        await FirebaseFirestore.instance
+        print('📝 [FIRESTORE] Saving to chats/$chatId/messages...');
+        print('📝 [FIRESTORE] Data keys: ${msgData.keys.toList()}');
+        print('📝 [FIRESTORE] imageBase64 count: ${base64Images.length}');
+
+        final docRef = await FirebaseFirestore.instance
             .collection('chats')
             .doc(chatId)
             .collection('messages')
             .add(msgData);
+
+        print('✅ [FIRESTORE] Message saved! DocID: ${docRef.id}');
 
         // Update last message
         await FirebaseFirestore.instance.collection('chats').doc(chatId).set({
           'lastMessage': '📷 Hình ảnh',
           'lastUpdated': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
+
+        print('✅ [FIRESTORE] Chat updated!');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('❌ [UPLOAD/FIRESTORE] Error: $e');
+      print('❌ [UPLOAD/FIRESTORE] Stack: $stackTrace');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Lỗi upload ảnh: ${e.toString()}')),
@@ -146,32 +158,12 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     }
   }
 
-  // Build image grid for displaying multiple images
-  Widget _buildImageGrid(List<String> imageUrls, bool isMe) {
-    if (imageUrls.length == 1) {
+  // Build image grid for displaying multiple base64 images
+  Widget _buildImageGrid(List<Map<String, dynamic>> images, bool isMe) {
+    if (images.length == 1) {
       return GestureDetector(
-        onTap: () => _showImageViewer(imageUrls, 0),
-        child: Image.network(
-          imageUrls[0],
-          width: 200,
-          fit: BoxFit.cover,
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return const SizedBox(
-              width: 200,
-              height: 150,
-              child: Center(child: CircularProgressIndicator()),
-            );
-          },
-          errorBuilder: (context, error, stackTrace) {
-            return Container(
-              width: 200,
-              height: 150,
-              color: Colors.grey.shade300,
-              child: const Icon(Icons.broken_image, size: 50),
-            );
-          },
-        ),
+        onTap: () => _showImageViewer(images, 0),
+        child: _buildBase64Image(images[0], width: 200),
       );
     }
 
@@ -182,35 +174,25 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount:
-              imageUrls.length == 2 ? 2 : (imageUrls.length <= 4 ? 2 : 3),
+          crossAxisCount: images.length == 2 ? 2 : (images.length <= 4 ? 2 : 3),
           crossAxisSpacing: 2,
           mainAxisSpacing: 2,
         ),
-        itemCount: imageUrls.length > 9 ? 9 : imageUrls.length,
+        itemCount: images.length > 9 ? 9 : images.length,
         itemBuilder: (context, index) {
-          final isLast = index == 8 && imageUrls.length > 9;
+          final isLast = index == 8 && images.length > 9;
           return GestureDetector(
-            onTap: () => _showImageViewer(imageUrls, index),
+            onTap: () => _showImageViewer(images, index),
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.network(
-                  imageUrls[index],
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: Colors.grey.shade300,
-                      child: const Icon(Icons.broken_image),
-                    );
-                  },
-                ),
+                _buildBase64Image(images[index]),
                 if (isLast)
                   Container(
                     color: Colors.black54,
                     child: Center(
                       child: Text(
-                        '+${imageUrls.length - 9}',
+                        '+${images.length - 9}',
                         style: const TextStyle(
                             color: Colors.white,
                             fontSize: 20,
@@ -226,8 +208,37 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     );
   }
 
+  // Build single image from base64 data
+  Widget _buildBase64Image(Map<String, dynamic> imageData, {double? width}) {
+    try {
+      final base64String = imageData['data'] as String;
+      final bytes = base64Decode(base64String);
+
+      return Image.memory(
+        bytes,
+        width: width,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return Container(
+            width: width ?? 100,
+            height: width != null ? width * 0.75 : 100,
+            color: Colors.grey.shade300,
+            child: const Icon(Icons.broken_image, size: 50),
+          );
+        },
+      );
+    } catch (e) {
+      return Container(
+        width: width ?? 100,
+        height: width != null ? width * 0.75 : 100,
+        color: Colors.grey.shade300,
+        child: const Icon(Icons.error, size: 50),
+      );
+    }
+  }
+
   // Show fullscreen image viewer with swipe support
-  void _showImageViewer(List<String> imageUrls, int initialIndex) {
+  void _showImageViewer(List<Map<String, dynamic>> images, int initialIndex) {
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -236,32 +247,39 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
         child: Stack(
           children: [
             PageView.builder(
-              itemCount: imageUrls.length,
+              itemCount: images.length,
               controller: PageController(initialPage: initialIndex),
               itemBuilder: (context, index) {
-                return Center(
-                  child: InteractiveViewer(
-                    minScale: 0.5,
-                    maxScale: 4.0,
-                    child: Image.network(
-                      imageUrls[index],
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) {
-                        return const Icon(
-                          Icons.broken_image,
-                          color: Colors.white,
-                          size: 100,
-                        );
-                      },
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return const Center(
-                          child: CircularProgressIndicator(color: Colors.white),
-                        );
-                      },
+                try {
+                  final base64String = images[index]['data'] as String;
+                  final bytes = base64Decode(base64String);
+
+                  return Center(
+                    child: InteractiveViewer(
+                      minScale: 0.5,
+                      maxScale: 4.0,
+                      child: Image.memory(
+                        bytes,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Icon(
+                            Icons.broken_image,
+                            color: Colors.white,
+                            size: 100,
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                );
+                  );
+                } catch (e) {
+                  return const Center(
+                    child: Icon(
+                      Icons.error,
+                      color: Colors.white,
+                      size: 100,
+                    ),
+                  );
+                }
               },
             ),
             // Close button
@@ -274,7 +292,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
               ),
             ),
             // Image counter (if multiple images)
-            if (imageUrls.length > 1)
+            if (images.length > 1)
               Positioned(
                 top: 50,
                 left: 0,
@@ -288,7 +306,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      '${initialIndex + 1}/${imageUrls.length}',
+                      '${initialIndex + 1}/${images.length}',
                       style: const TextStyle(color: Colors.white, fontSize: 14),
                     ),
                   ),
@@ -638,9 +656,11 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                     final Timestamp? timestamp = data['createdAt'];
                     final String msgType =
                         data['type'] ?? 'text'; // Loại tin nhắn
-                    final List<String>? imageUrls = data['imageUrls'] != null
-                        ? List<String>.from(data['imageUrls'])
-                        : null;
+                    final List<Map<String, dynamic>>? imageBase64 =
+                        data['imageBase64'] != null
+                            ? List<Map<String, dynamic>>.from(
+                                data['imageBase64'])
+                            : null;
 
                     String timeStr = '';
                     if (timestamp != null) {
@@ -711,8 +731,8 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                               Builder(
                                 builder: (context) {
                                   final bool isImageOnly = msgType == 'image' &&
-                                      imageUrls != null &&
-                                      imageUrls.isNotEmpty &&
+                                      imageBase64 != null &&
+                                      imageBase64.isNotEmpty &&
                                       replyTo == null;
 
                                   if (isImageOnly) {
@@ -721,7 +741,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        _buildImageGrid(imageUrls!, isMe),
+                                        _buildImageGrid(imageBase64, isMe),
                                         // Show timestamp below images
                                         Padding(
                                           padding: const EdgeInsets.only(
@@ -819,9 +839,9 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
 
                                         // Nội dung chính - Text hoặc Ảnh
                                         if (msgType == 'image' &&
-                                            imageUrls != null &&
-                                            imageUrls.isNotEmpty)
-                                          _buildImageGrid(imageUrls, isMe)
+                                            imageBase64 != null &&
+                                            imageBase64.isNotEmpty)
+                                          _buildImageGrid(imageBase64, isMe)
                                         else
                                           Text(content,
                                               style: TextStyle(

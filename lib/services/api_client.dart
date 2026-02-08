@@ -205,10 +205,10 @@ class ApiClient {
   bool get isAuthenticated => _accessToken != null;
 
   /// Upload images to server
-  /// Returns list of public URLs
+  /// Returns list of base64 image data
   /// Upload images to server
-  /// Returns list of public URLs
-  Future<List<String>> uploadImages({
+  /// Returns list of base64 image data
+  Future<List<Map<String, dynamic>>> uploadImages({
     required List<XFile> images,
     required String roomId,
   }) async {
@@ -277,9 +277,10 @@ class ApiClient {
       print('✓ [UPLOAD] Data: ${response.data}');
 
       if (response.data['success'] == true) {
-        final urls = List<String>.from(response.data['data']['urls']);
-        print('✅ [UPLOAD] Success! URLs: $urls');
-        return urls;
+        final images =
+            List<Map<String, dynamic>>.from(response.data['data']['images']);
+        print('✅ [UPLOAD] Success! Got ${images.length} base64 images');
+        return images;
       }
 
       print('❌ [UPLOAD] Failed: ${response.data}');
